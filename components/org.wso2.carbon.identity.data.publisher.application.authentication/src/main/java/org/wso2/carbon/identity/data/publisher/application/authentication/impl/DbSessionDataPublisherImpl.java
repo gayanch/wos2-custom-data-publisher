@@ -20,24 +20,22 @@ package org.wso2.carbon.identity.data.publisher.application.authentication.impl;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.wso2.carbon.databridge.commons.Event;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
-import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkUtils;
 import org.wso2.carbon.identity.base.IdentityRuntimeException;
 import org.wso2.carbon.identity.data.publisher.application.authentication.AbstractAuthenticationDataPublisher;
 import org.wso2.carbon.identity.data.publisher.application.authentication.AuthPublisherConstants;
 import org.wso2.carbon.identity.data.publisher.application.authentication.AuthnDataPublisherUtils;
-import org.wso2.carbon.identity.data.publisher.application.authentication.internal.AuthenticationDataPublisherDataHolder;
 import org.wso2.carbon.identity.data.publisher.application.authentication.model.AuthenticationData;
 import org.wso2.carbon.identity.data.publisher.application.authentication.model.SessionData;
-import org.wso2.carbon.utils.multitenancy.MultitenantConstants;
+import org.wso2.carbon.identity.data.publisher.application.authentication.util.DataPublisherDbUtil;
 
 import javax.servlet.http.HttpServletRequest;
+import java.sql.SQLException;
 import java.util.Map;
 
-public class DASSessionDataPublisherImpl extends AbstractAuthenticationDataPublisher {
+public class DbSessionDataPublisherImpl extends AbstractAuthenticationDataPublisher {
 
-    public static final Log LOG = LogFactory.getLog(DASSessionDataPublisherImpl.class);
+    public static final Log LOG = LogFactory.getLog(DbSessionDataPublisherImpl.class);
 
     @Override
     public void publishAuthenticationStepSuccess(HttpServletRequest request, AuthenticationContext context,
@@ -116,59 +114,32 @@ public class DASSessionDataPublisherImpl extends AbstractAuthenticationDataPubli
     protected void publishSessionData(SessionData sessionData, int actionId) {
 
         if (sessionData != null) {
-            Object[] payloadData = new Object[15];
+            SessionData<Object, Object> tmpSessionData = new SessionData<>();
             try {
-                payloadData[0] = AuthnDataPublisherUtils.replaceIfNotAvailable(AuthPublisherConstants.CONFIG_PREFIX +
+                String sessionId = AuthnDataPublisherUtils.replaceIfNotAvailable(AuthPublisherConstants.CONFIG_PREFIX +
                         AuthPublisherConstants.SESSION_ID, sessionData.getSessionId());
-                payloadData[1] = sessionData.getCreatedTimestamp();
-                payloadData[2] = sessionData.getUpdatedTimestamp();
-                payloadData[3] = sessionData.getTerminationTimestamp();
-                payloadData[4] = actionId;
-                payloadData[5] = AuthnDataPublisherUtils.replaceIfNotAvailable(AuthPublisherConstants.CONFIG_PREFIX +
+                long createdTimestamp = sessionData.getCreatedTimestamp();
+                long updatedTimestamp = sessionData.getUpdatedTimestamp();
+                long terminationTimestamp = sessionData.getTerminationTimestamp();
+                String username = AuthnDataPublisherUtils.replaceIfNotAvailable(AuthPublisherConstants.CONFIG_PREFIX +
                         AuthPublisherConstants.USERNAME, sessionData.getUser());
-                payloadData[6] = AuthnDataPublisherUtils.replaceIfNotAvailable(AuthPublisherConstants.CONFIG_PREFIX +
-                        AuthPublisherConstants.USER_STORE_DOMAIN, sessionData.getUserStoreDomain());
-                payloadData[7] = sessionData.getRemoteIP();
-                payloadData[8] = AuthPublisherConstants.NOT_AVAILABLE;
-                payloadData[9] = sessionData.getTenantDomain();
-                payloadData[10] = sessionData.getServiceProvider();
-                payloadData[11] = sessionData.getIdentityProviders();
-                payloadData[12] = sessionData.isRememberMe();
-                payloadData[13] = sessionData.getUserAgent();
-                payloadData[14] = System.currentTimeMillis();
+                String serviceProvider = sessionData.getServiceProvider();
 
-                if (LOG.isDebugEnabled()) {
-                    for (int i = 0; i < 14; i++) {
-                        if (payloadData[i] != null) {
-                            LOG.debug("Payload data for entry " + i + " " + payloadData[i].toString());
-                        } else {
-                            LOG.debug("Payload data for entry " + i + " is null");
-                        }
-                    }
-                }
+                tmpSessionData.setSessionId(sessionId);
+                tmpSessionData.setCreatedTimestamp(createdTimestamp);
+                tmpSessionData.setUpdatedTimestamp(updatedTimestamp);
+                tmpSessionData.setTerminationTimestamp(terminationTimestamp);
+                tmpSessionData.setUser(username);
+                tmpSessionData.setServiceProvider(serviceProvider);
 
-                String[] publishingDomains = (String[]) sessionData.getParameter(AuthPublisherConstants.TENANT_ID);
-                if (publishingDomains != null && publishingDomains.length > 0) {
-                    try {
-                        FrameworkUtils.startTenantFlow(MultitenantConstants.SUPER_TENANT_DOMAIN_NAME);
-                        for (String publishingDomain : publishingDomains) {
-                            Object[] metadataArray = AuthnDataPublisherUtils.getMetaDataArray(publishingDomain);
-                            Event event = new Event(AuthPublisherConstants.SESSION_DATA_STREAM_NAME, System
-                                    .currentTimeMillis(), metadataArray, null, payloadData);
-                            AuthenticationDataPublisherDataHolder.getInstance().getPublisherService().publish(event);
-                            if (LOG.isDebugEnabled() && event != null) {
-                                LOG.debug("Sending out event : " + event.toString());
-                            }
-                        }
-                    } finally {
-                        FrameworkUtils.endTenantFlow();
-                    }
-                }
+                DataPublisherDbUtil.publishSessionData(tmpSessionData);
 
             } catch (IdentityRuntimeException e) {
                 if (LOG.isDebugEnabled()) {
                     LOG.error("Error while publishing session information", e);
                 }
+            } catch (SQLException e) {
+                LOG.error("Error publishing session data. " + e.getMessage(), e);
             }
         }
     }

@@ -26,8 +26,8 @@ import org.wso2.carbon.identity.application.authentication.framework.util.Framew
 import org.wso2.carbon.identity.core.handler.MessageHandlerComparator;
 import org.wso2.carbon.identity.data.publisher.application.authentication.AuthnDataPublisherProxy;
 import org.wso2.carbon.identity.data.publisher.application.authentication.impl.AuthenticationAuditLogger;
-import org.wso2.carbon.identity.data.publisher.application.authentication.impl.DASLoginDataPublisherImpl;
-import org.wso2.carbon.identity.data.publisher.application.authentication.impl.DASSessionDataPublisherImpl;
+import org.wso2.carbon.identity.data.publisher.application.authentication.impl.DbLoginDataPublisherImpl;
+import org.wso2.carbon.identity.data.publisher.application.authentication.impl.DbSessionDataPublisherImpl;
 import org.wso2.carbon.registry.core.service.RegistryService;
 import org.wso2.carbon.user.core.service.RealmService;
 
@@ -57,9 +57,9 @@ public class AuthenticationDataPublisherServiceComponent {
 
         BundleContext bundleContext = context.getBundleContext();
         bundleContext
-                .registerService(AuthenticationDataPublisher.class.getName(), new DASLoginDataPublisherImpl(), null);
+                .registerService(AuthenticationDataPublisher.class.getName(), new DbLoginDataPublisherImpl(), null);
         bundleContext
-                .registerService(AuthenticationDataPublisher.class.getName(), new DASSessionDataPublisherImpl(), null);
+                .registerService(AuthenticationDataPublisher.class.getName(), new DbSessionDataPublisherImpl(), null);
         bundleContext
                 .registerService(AuthenticationDataPublisher.class.getName(), new AuthenticationAuditLogger(), null);
         bundleContext
